@@ -400,15 +400,18 @@ export default function AdminPanel() {
             <div className="space-y-5">
               <div className="max-w-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
-                    { value: 'local.ch', label: '🇨🇭 Switzerland (local.ch)' },
-                    { value: 'gelbeseiten.de', label: '🇩🇪 Germany (gelbeseiten.de)' },
+                    { value: 'local.ch',       label: '🇨🇭 Switzerland (local.ch)' },
+                    { value: 'gelbeseiten.de',  label: '🇩🇪 Germany (gelbeseiten.de)' },
+                    { value: 'herold.at',       label: '🇦🇹 Austria (herold.at)' },
+                    { value: 'proff.no',        label: '🇳🇴 Norway (proff.no)' },
+                    { value: 'proff.dk',        label: '🇩🇰 Denmark (proff.dk)' },
                   ].map((s) => (
                     <button
                       key={s.value}
                       onClick={() => { setScrapeSource(s.value); setScrapeCity(''); setSelectedCats([]); loadScrapeOptions(s.value); }}
-                      className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                         scrapeSource === s.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -504,11 +507,21 @@ export default function AdminPanel() {
                     <tr key={j.id} className="hover:bg-gray-50">
                       <td className="px-6 py-3 text-xs font-mono text-gray-500">{j.id}</td>
                       <td className="px-6 py-3 text-xs">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset ${
-                          j.source === 'gelbeseiten.de' ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-red-50 text-red-700 ring-red-600/20'
-                        }`}>
-                          {j.source === 'gelbeseiten.de' ? '🇩🇪 DE' : '🇨🇭 CH'}
-                        </span>
+                        {(() => {
+                          const SOURCE_BADGE = {
+                            'local.ch':       { label: '🇨🇭 CH', cls: 'bg-red-50 text-red-700 ring-red-600/20' },
+                            'gelbeseiten.de': { label: '🇩🇪 DE', cls: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
+                            'herold.at':      { label: '🇦🇹 AT', cls: 'bg-orange-50 text-orange-700 ring-orange-600/20' },
+                            'proff.no':       { label: '🇳🇴 NO', cls: 'bg-blue-50 text-blue-700 ring-blue-600/20' },
+                            'proff.dk':       { label: '🇩🇰 DK', cls: 'bg-sky-50 text-sky-700 ring-sky-600/20' },
+                          };
+                          const b = SOURCE_BADGE[j.source] || SOURCE_BADGE['local.ch'];
+                          return (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset ${b.cls}`}>
+                              {b.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-900">{j.city}</td>
                       <td className="px-6 py-3 text-sm text-gray-900">{j.category}</td>
@@ -670,10 +683,13 @@ export default function AdminPanel() {
           <div className="mb-4 flex flex-wrap gap-3 items-end">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Source</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'local.ch', label: '🇨🇭 CH' },
+                  { value: 'local.ch',      label: '🇨🇭 CH' },
                   { value: 'gelbeseiten.de', label: '🇩🇪 DE' },
+                  { value: 'herold.at',      label: '🇦🇹 AT' },
+                  { value: 'proff.no',       label: '🇳🇴 NO' },
+                  { value: 'proff.dk',       label: '🇩🇰 DK' },
                 ].map((s) => (
                   <button
                     key={s.value}

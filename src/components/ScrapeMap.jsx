@@ -100,10 +100,68 @@ const CITY_COORDS = {
   "Dortmund": [51.5136, 7.4653],
   "Essen": [51.4556, 7.0116],
   "Duisburg": [51.4344, 6.7624],
+  // Austria
+  "Wien": [48.2082, 16.3738],
+  "Graz": [47.0707, 15.4395],
+  "Linz": [48.3069, 14.2858],
+  "Salzburg": [47.8095, 13.0550],
+  "Innsbruck": [47.2692, 11.4041],
+  "Klagenfurt": [46.6228, 14.3050],
+  "Villach": [46.6111, 13.8558],
+  "Wels": [48.1567, 14.0244],
+  "St. Pölten": [48.2047, 15.6256],
+  "Dornbirn": [47.4125, 9.7417],
+  "Wiener Neustadt": [47.8150, 16.2470],
+  "Steyr": [48.0430, 14.4220],
+  "Feldkirch": [47.2370, 9.5991],
+  "Bregenz": [47.5031, 9.7471],
+  "Leoben": [47.3833, 15.0931],
+  "Klosterneuburg": [48.3086, 16.3258],
+  "Baden": [48.0033, 16.2308],
+  "Wolfsberg": [46.8414, 14.8439],
+  "Krems": [48.4098, 15.5972],
+  "Traun": [48.2200, 14.2381],
+  // Norway
+  "Oslo": [59.9139, 10.7522],
+  "Bergen": [60.3913, 5.3221],
+  "Trondheim": [63.4305, 10.3951],
+  "Stavanger": [58.9700, 5.7331],
+  "Bærum": [59.8942, 10.5268],
+  "Kristiansand": [58.1463, 7.9960],
+  "Fredrikstad": [59.2181, 10.9298],
+  "Sandnes": [58.8520, 5.7356],
+  "Tromsø": [69.6492, 18.9553],
+  "Drammen": [59.7440, 10.2045],
+  "Asker": [59.8333, 10.4333],
+  "Lillestrøm": [59.9547, 11.0497],
+  "Sarpsborg": [59.2840, 11.1090],
+  "Skien": [59.2097, 9.6100],
+  "Bodø": [67.2804, 14.4049],
+  // Denmark
+  "København": [55.6761, 12.5683],
+  "Aarhus": [56.1629, 10.2039],
+  "Odense": [55.4038, 10.4024],
+  "Aalborg": [57.0488, 9.9217],
+  "Esbjerg": [55.4667, 8.4500],
+  "Randers": [56.4607, 10.0363],
+  "Kolding": [55.4904, 9.4722],
+  "Vejle": [55.7095, 9.5359],
+  "Horsens": [55.8607, 9.8502],
+  "Roskilde": [55.6415, 12.0803],
+  "Helsingør": [56.0360, 12.6136],
+  "Herning": [56.1397, 8.9734],
+  "Silkeborg": [56.1497, 9.5460],
+  "Næstved": [55.2299, 11.7597],
+  "Fredericia": [55.5644, 9.7530],
 };
 
-const CH_CENTER = [46.8182, 8.2275];
-const DE_CENTER = [51.1657, 10.4515];
+const SOURCE_VIEW = {
+  'local.ch':      { center: [46.8182,  8.2275], zoom: 8 },
+  'gelbeseiten.de':{ center: [51.1657, 10.4515], zoom: 6 },
+  'herold.at':     { center: [47.5162, 14.5501], zoom: 7 },
+  'proff.no':      { center: [64.5731, 17.8880], zoom: 5 },
+  'proff.dk':      { center: [56.2639,  9.5018], zoom: 7 },
+};
 
 function FitBounds({ bounds }) {
   const map = useMap();
@@ -140,8 +198,7 @@ export default function ScrapeMap({ source, cities, scrapedCombos, categoryCount
     return cityStats.map((c) => [c.lat, c.lng]);
   }, [cityStats]);
 
-  const center = source === 'gelbeseiten.de' ? DE_CENTER : CH_CENTER;
-  const zoom = source === 'gelbeseiten.de' ? 6 : 8;
+  const { center, zoom } = SOURCE_VIEW[source] || SOURCE_VIEW['local.ch'];
 
   const getColor = (status) => {
     if (status === 'full') return '#16a34a';
