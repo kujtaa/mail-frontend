@@ -53,7 +53,18 @@ export default function AdminPanel() {
   const [planDays, setPlanDays] = useState(30);
   const [planDailyLimit, setPlanDailyLimit] = useState(200);
 
+  const [sourcesModal, setSourcesModal] = useState(null);
+  const [selectedSources, setSelectedSources] = useState([]);
+
   const [message, setMessage] = useState('');
+
+  const ALL_SOURCES = [
+    { value: 'local.ch', label: '🇨🇭 Switzerland (local.ch)' },
+    { value: 'gelbeseiten.de', label: '🇩🇪 Germany (gelbeseiten.de)' },
+    { value: 'herold.at', label: '🇦🇹 Austria (herold.at)' },
+    { value: 'proff.no', label: '🇳🇴 Norway (proff.no)' },
+    { value: 'proff.dk', label: '🇩🇰 Denmark (proff.dk)' },
+  ];
 
   const loadFilterOptions = () => {
     api.get('/admin/filter-options').then((data) => {
@@ -152,13 +163,27 @@ export default function AdminPanel() {
     } catch (err) { setMessage(err.message); }
   };
 
-  const handleDeactivate = async (id, name) => {
-    if (!confirm(`Deactivate company "${name}"?`)) return;
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Permanently DELETE company "${name}" and all its data? This cannot be undone.`)) return;
     try {
       await api.del(`/admin/companies/${id}`);
       api.get('/admin/companies').then(setCompanies);
-      setMessage(`Company "${name}" deactivated`);
+      setMessage(`Company "${name}" permanently deleted`);
     } catch (err) { setMessage(err.message); }
+  };
+
+  const handleSetSources = async () => {
+    if (!sourcesModal) return;
+    try {
+      await api.post('/admin/set-sources', { company_id: sourcesModal.id, sources: selectedSources });
+      setSourcesModal(null);
+      api.get('/admin/companies').then(setCompanies);
+      setMessage(`Sources updated for "${sourcesModal.name}"`);
+    } catch (err) { setMessage(err.message); }
+  };
+
+  const toggleSource = (value) => {
+    setSelectedSources((prev) => prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]);
   };
 
   const handleApprove = async (id, name) => {
@@ -317,9 +342,22 @@ export default function AdminPanel() {
             <tbody className="divide-y divide-gray-100">
               {companies.map((c) => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {c.name}
-                    {c.is_admin && <span className="ml-2 text-xs text-indigo-600">(admin)</span>}
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-gray-900">
+                      {c.name}
+                      {c.is_admin && <span className="ml-2 text-xs text-indigo-600">(admin)</span>}
+                    </div>
+                    {c.allowed_sources && c.allowed_sources.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {c.allowed_sources.map((s) => (
+                          <span key={s} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-sky-50 text-sky-700 ring-1 ring-sky-600/20 ring-inset">
+                            {s === 'local.ch' ? '🇨🇭' : s === 'gelbeseiten.de' ? '🇩🇪' : s === 'herold.at' ? '🇦🇹' : s === 'proff.no' ? '🇳🇴' : s === 'proff.dk' ? '🇩🇰' : ''} {s}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-gray-400">All sources</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{c.email}</td>
                   <td className="px-6 py-4">
@@ -350,8 +388,9 @@ export default function AdminPanel() {
                     )}
                     <button onClick={() => setCreditModal(c)} className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 cursor-pointer">Credits</button>
                     <button onClick={() => { setPlanModal(c); setPlanType(c.plan === 'premium' ? 'free' : 'premium'); }} className="text-xs bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 cursor-pointer">Plan</button>
+                    <button onClick={() => { setSourcesModal(c); setSelectedSources(c.allowed_sources || []); }} className="text-xs bg-sky-600 text-white px-3 py-1 rounded-lg hover:bg-sky-700 cursor-pointer">Sources</button>
                     {!c.is_admin && (
-                      <button onClick={() => handleDeactivate(c.id, c.name)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 cursor-pointer">Deactivate</button>
+                      <button onClick={() => handleDelete(c.id, c.name)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 cursor-pointer">Delete</button>
                     )}
                   </td>
                 </tr>
@@ -814,6 +853,38 @@ export default function AdminPanel() {
             <div className="flex gap-3 mt-6">
               <button onClick={() => setPlanModal(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 cursor-pointer">Cancel</button>
               <button onClick={handleSetPlan} className="flex-1 bg-purple-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-purple-700 cursor-pointer">Save Plan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sources Modal ────────── */}
+      {sourcesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Allowed Sources</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Company: <span className="font-medium text-gray-900">{sourcesModal.name}</span>
+            </p>
+            <p className="text-xs text-gray-400 mb-4">Select which countries/sites this company can browse and send emails to. Leave all unchecked to allow all sources.</p>
+            <div className="space-y-2">
+              {ALL_SOURCES.map((s) => (
+                <label key={s.value} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedSources.includes(s.value) ? 'bg-sky-50 ring-1 ring-sky-200' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSources.includes(s.value)}
+                    onChange={() => toggleSource(s.value)}
+                    className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{s.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setSourcesModal(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 cursor-pointer">Cancel</button>
+              <button onClick={handleSetSources} className="flex-1 bg-sky-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-sky-700 cursor-pointer">
+                {selectedSources.length === 0 ? 'Allow All Sources' : `Save ${selectedSources.length} Source${selectedSources.length === 1 ? '' : 's'}`}
+              </button>
             </div>
           </div>
         </div>
