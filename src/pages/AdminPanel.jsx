@@ -56,6 +56,13 @@ export default function AdminPanel() {
   const [sourcesModal, setSourcesModal] = useState(null);
   const [selectedSources, setSelectedSources] = useState([]);
 
+  const [unsubEmails, setUnsubEmails] = useState([]);
+  const [unsubTotal, setUnsubTotal] = useState(0);
+  const [unsubPage, setUnsubPage] = useState(1);
+  const [unsubSearch, setUnsubSearch] = useState('');
+  const [unsubSearchDebounced, setUnsubSearchDebounced] = useState('');
+  const unsubDebounce = useRef(null);
+
   const [message, setMessage] = useState('');
 
   const ALL_SOURCES = [
@@ -102,6 +109,16 @@ export default function AdminPanel() {
     });
   }, [emailCat, emailCity, emailSearchDebounced, emailPage]);
 
+  const loadUnsub = useCallback(() => {
+    const params = new URLSearchParams({
+      search: unsubSearchDebounced, page: unsubPage, per_page: 20,
+    });
+    api.get(`/admin/unsubscribed?${params}`).then((data) => {
+      setUnsubEmails(data.items);
+      setUnsubTotal(data.total);
+    });
+  }, [unsubSearchDebounced, unsubPage]);
+
   const loadNoWeb = useCallback(() => {
     const params = new URLSearchParams({
       city: noWebCity, category: noWebCatFilter, search: noWebSearchDebounced,
@@ -123,6 +140,7 @@ export default function AdminPanel() {
 
   useEffect(() => { if (tab === 'emails') loadEmails(); }, [tab, loadEmails]);
   useEffect(() => { if (tab === 'no-website') loadNoWeb(); }, [tab, loadNoWeb]);
+  useEffect(() => { if (tab === 'unsubscribed') loadUnsub(); }, [tab, loadUnsub]);
 
   useEffect(() => {
     const hasActive = scrapeJobs.some((j) => j.status === 'running' || j.status === 'queued');
@@ -144,6 +162,21 @@ export default function AdminPanel() {
     setEmailSearch(val);
     clearTimeout(emailDebounce.current);
     emailDebounce.current = setTimeout(() => { setEmailSearchDebounced(val); setEmailPage(1); }, 400);
+  };
+
+  const handleUnsubSearch = (val) => {
+    setUnsubSearch(val);
+    clearTimeout(unsubDebounce.current);
+    unsubDebounce.current = setTimeout(() => { setUnsubSearchDebounced(val); setUnsubPage(1); }, 400);
+  };
+
+  const handleRemoveUnsub = async (id, email) => {
+    if (!confirm(`Re-subscribe "${email}"? They will receive emails again.`)) return;
+    try {
+      await api.del(`/admin/unsubscribed/${id}`);
+      loadUnsub();
+      setMessage(`"${email}" removed from unsubscribe list`);
+    } catch (err) { setMessage(err.message); }
   };
 
   const handleNoWebSearch = (val) => {
@@ -322,6 +355,7 @@ export default function AdminPanel() {
         {tabBtn('emails', 'All Emails')}
         {tabBtn('no-website', 'No Website')}
         {tabBtn('coverage', 'Coverage')}
+        {tabBtn('unsubscribed', 'Unsubscribed')}
       </div>
 
       {/* ── Companies ─────────────────────────────────── */}
@@ -820,6 +854,52 @@ export default function AdminPanel() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Unsubscribed ─────────────────────────────── */}
+      {tab === 'unsubscribed' && (
+        <div>
+          <div className="mb-4 flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
+              {searchInput(unsubSearch, handleUnsubSearch, 'Search by email...')}
+            </div>
+            <div className="text-sm text-gray-500 pb-1">
+              <span className="font-medium text-gray-900">{unsubTotal.toLocaleString()}</span> unsubscribed emails
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Business</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">City</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Category</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Unsubscribed At</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {unsubEmails.length === 0 ? (
+                  <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No unsubscribed emails</td></tr>
+                ) : unsubEmails.map((u) => (
+                  <tr key={u.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-mono text-gray-900">{u.email}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{u.business_name || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{u.city || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{u.category || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-400">{u.unsubscribed_at ? new Date(u.unsubscribed_at).toLocaleString() : '—'}</td>
+                    <td className="px-6 py-4">
+                      <button onClick={() => handleRemoveUnsub(u.id, u.email)} className="text-xs bg-amber-600 text-white px-3 py-1 rounded-lg hover:bg-amber-700 cursor-pointer">Re-subscribe</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={unsubPage} setPage={setUnsubPage} total={unsubTotal} perPage={20} />
         </div>
       )}
 
