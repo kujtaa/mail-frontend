@@ -25,10 +25,12 @@ const QUILL_FORMATS = [
 
 export default function SendEmails() {
   const location = useLocation();
+  const [mode, setMode] = useState('batch');
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(location.state?.batchId || '');
   const [batchEmails, setBatchEmails] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [manualEmails, setManualEmails] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
@@ -66,16 +68,34 @@ export default function SendEmails() {
     }
   };
 
+  const parsedManualEmails = useMemo(() => {
+    return manualEmails.split(/[\n,;]+/).map((e) => e.trim()).filter((e) => e && e.includes('@'));
+  }, [manualEmails]);
+
   const handleSend = async () => {
     setSending(true);
     setMessage('');
     try {
-      const result = await api.post('/dashboard/send-email', {
-        batch_email_ids: selectedIds,
-        subject,
-        body,
-      });
-      setMessage(`Queued ${result.queued} email(s) for sending!`);
+      if (mode === 'manual') {
+        const result = await api.post('/dashboard/send-manual', {
+          emails: parsedManualEmails,
+          subject,
+          body,
+        });
+        const failed = result.results.filter((r) => r.status === 'failed');
+        if (failed.length > 0) {
+          setMessage(`Sent ${result.sent}/${result.total}. Failed: ${failed.map((f) => f.email).join(', ')}`);
+        } else {
+          setMessage(`Sent ${result.sent} email(s) successfully!`);
+        }
+      } else {
+        const result = await api.post('/dashboard/send-email', {
+          batch_email_ids: selectedIds,
+          subject,
+          body,
+        });
+        setMessage(`Queued ${result.queued} email(s) for sending!`);
+      }
       setSubject('');
       setBody('');
       setShowPreview(false);
@@ -91,7 +111,8 @@ export default function SendEmails() {
     return !stripped;
   }, [body]);
 
-  const canSend = subject && !isBodyEmpty && selectedIds.length > 0;
+  const canSend = subject && !isBodyEmpty && (mode === 'batch' ? selectedIds.length > 0 : parsedManualEmails.length > 0);
+  const recipientCount = mode === 'batch' ? selectedIds.length : parsedManualEmails.length;
 
   const firstRecipient = batchEmails.find((e) => selectedIds.includes(e.id));
 
@@ -110,54 +131,96 @@ export default function SendEmails() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Batch + Recipients */}
+        {/* Left: Mode toggle + Recipients */}
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch</label>
-            <select
-              value={selectedBatch}
-              onChange={(e) => setSelectedBatch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setMode('batch')}
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                mode === 'batch' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <option value="">Choose a batch...</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Batch #{b.id} — {b.category_name} ({b.batch_size} emails)
-                </option>
-              ))}
-            </select>
+              From Batch
+            </button>
+            <button
+              onClick={() => setMode('manual')}
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                mode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Manual Emails
+            </button>
           </div>
 
-          {batchEmails.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.length === batchEmails.length}
-                    onChange={toggleAll}
-                    className="rounded cursor-pointer"
-                  />
-                  Select All
-                </label>
-                <span className="text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
+          {mode === 'batch' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch</label>
+                <select
+                  value={selectedBatch}
+                  onChange={(e) => setSelectedBatch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="">Choose a batch...</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      Batch #{b.id} — {b.category_name} ({b.batch_size} emails)
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
-                {batchEmails.map((e) => (
-                  <label key={e.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(e.id)}
-                      onChange={() => toggleId(e.id)}
-                      className="rounded cursor-pointer"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{e.business_name}</p>
-                      <p className="text-xs text-gray-400 font-mono truncate">{e.email}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
+
+              {batchEmails.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === batchEmails.length}
+                        onChange={toggleAll}
+                        className="rounded cursor-pointer"
+                      />
+                      Select All
+                    </label>
+                    <span className="text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                    {batchEmails.map((e) => (
+                      <label key={e.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(e.id)}
+                          onChange={() => toggleId(e.id)}
+                          className="rounded cursor-pointer"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-800 truncate">{e.business_name}</p>
+                          <p className="text-xs text-gray-400 font-mono truncate">{e.email}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {mode === 'manual' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Addresses
+                {parsedManualEmails.length > 0 && (
+                  <span className="ml-2 text-indigo-600 font-normal">({parsedManualEmails.length} valid)</span>
+                )}
+              </label>
+              <textarea
+                value={manualEmails}
+                onChange={(e) => setManualEmails(e.target.value)}
+                rows={8}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder={"test@example.com\nclient@company.com\nsales@business.ch"}
+              />
+              <p className="text-xs text-gray-400 mt-1.5">One email per line, or separate with commas</p>
             </div>
           )}
         </div>
@@ -219,7 +282,7 @@ export default function SendEmails() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  Send to {selectedIds.length} recipient(s)
+                  Send to {recipientCount} recipient(s)
                 </>
               )}
             </button>
@@ -289,13 +352,22 @@ export default function SendEmails() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-gray-900 truncate">{subject || '(No subject)'}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        To: {firstRecipient ? (
-                          <span className="text-gray-700">{firstRecipient.business_name} &lt;{firstRecipient.email}&gt;</span>
+                        To: {mode === 'manual' ? (
+                          <>
+                            <span className="text-gray-700">{parsedManualEmails[0]}</span>
+                            {parsedManualEmails.length > 1 && (
+                              <span className="text-gray-400 ml-1">and {parsedManualEmails.length - 1} more</span>
+                            )}
+                          </>
+                        ) : firstRecipient ? (
+                          <>
+                            <span className="text-gray-700">{firstRecipient.business_name} &lt;{firstRecipient.email}&gt;</span>
+                            {selectedIds.length > 1 && (
+                              <span className="text-gray-400 ml-1">and {selectedIds.length - 1} more</span>
+                            )}
+                          </>
                         ) : (
                           <span className="text-gray-400">No recipients selected</span>
-                        )}
-                        {selectedIds.length > 1 && (
-                          <span className="text-gray-400 ml-1">and {selectedIds.length - 1} more</span>
                         )}
                       </p>
                     </div>
@@ -323,7 +395,7 @@ export default function SendEmails() {
             {/* Footer actions */}
             <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Sending to <span className="font-medium text-gray-700">{selectedIds.length}</span> recipient(s)
+                Sending to <span className="font-medium text-gray-700">{recipientCount}</span> recipient(s)
               </p>
               <div className="flex gap-3">
                 <button
