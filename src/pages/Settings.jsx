@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+
+const SIG_MODULES = {
+  toolbar: [
+    ['bold', 'italic', 'underline'],
+    [{ color: [] }],
+    ['link', 'image'],
+    ['clean'],
+  ],
+};
+const SIG_FORMATS = ['bold', 'italic', 'underline', 'color', 'link', 'image'];
 
 const PRESETS = [
   { label: 'Gmail', host: 'smtp.gmail.com', port: 587, note: 'Use an App Password, not your Gmail password' },
@@ -24,6 +36,7 @@ export default function Settings() {
   const [fromName, setFromName] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [hasPassword, setHasPassword] = useState(false);
+  const [signature, setSignature] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [activePreset, setActivePreset] = useState('Custom');
 
@@ -37,6 +50,7 @@ export default function Settings() {
         setFromName(data.smtp_from_name || '');
         setEnabled(data.smtp_enabled);
         setHasPassword(data.has_password);
+        setSignature(data.email_signature || '');
         setTestEmail(company?.email || '');
 
         const match = PRESETS.find((p) => p.host === data.smtp_host);
@@ -58,6 +72,7 @@ export default function Settings() {
     setSaving(true);
     setMessage(null);
     try {
+      const sigStripped = signature.replace(/<[^>]*>/g, '').trim();
       const data = await api.put('/dashboard/smtp-settings', {
         smtp_host: host,
         smtp_port: port,
@@ -66,6 +81,7 @@ export default function Settings() {
         smtp_from_email: fromEmail || user,
         smtp_from_name: fromName,
         smtp_enabled: enabled,
+        email_signature: sigStripped ? signature : null,
       });
       setHasPassword(data.has_password);
       setPass('');
@@ -244,13 +260,29 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* Email Signature */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email Signature</label>
+            <p className="text-xs text-gray-400 mb-2">This signature will be appended to every email you send.</p>
+            <div className="rounded-lg border border-gray-300 overflow-hidden bg-white [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200 [&_.ql-toolbar]:bg-gray-50 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[100px] [&_.ql-editor]:text-sm [&_.ql-editor]:leading-relaxed">
+              <ReactQuill
+                theme="snow"
+                value={signature}
+                onChange={setSignature}
+                modules={SIG_MODULES}
+                formats={SIG_FORMATS}
+                placeholder="Best regards,&#10;John Doe — Company Name&#10;+41 79 123 45 67"
+              />
+            </div>
+          </div>
+
           {/* Save */}
           <button
             onClick={handleSave}
             disabled={saving || !host || !user}
             className="w-full bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
           >
-            {saving ? 'Saving...' : 'Save SMTP Settings'}
+            {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
 
