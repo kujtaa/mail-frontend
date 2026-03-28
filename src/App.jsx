@@ -10,6 +10,7 @@ import SendEmails from './pages/SendEmails';
 import SentHistory from './pages/SentHistory';
 import AdminPanel from './pages/AdminPanel';
 import Settings from './pages/Settings';
+import CreateBatch from './pages/CreateBatch';
 import Unsubscribe from './pages/Unsubscribe';
 
 function ProtectedRoute({ children, adminOnly = false, requireApproval = false }) {
@@ -37,6 +38,7 @@ function AppRoutes() {
               <Route path="/register" element={company ? <Navigate to="/" /> : <Register />} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/browse" element={<ProtectedRoute requireApproval><BrowseEmails /></ProtectedRoute>} />
+              <Route path="/create-batch" element={<ProtectedRoute requireApproval><CreateBatch /></ProtectedRoute>} />
               <Route path="/batches" element={<ProtectedRoute requireApproval><MyBatches /></ProtectedRoute>} />
               <Route path="/send" element={<ProtectedRoute requireApproval><SendEmails /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute requireApproval><SentHistory /></ProtectedRoute>} />

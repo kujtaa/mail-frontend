@@ -38,6 +38,7 @@ export default function Navbar() {
             {(company.is_approved || company.is_admin) && (
               <>
                 {navLink('/browse', 'Browse Emails')}
+                {navLink('/create-batch', 'Create Batch')}
                 {navLink('/batches', 'My Batches')}
                 {navLink('/send', 'Send Emails')}
                 {navLink('/history', 'Sent History')}
