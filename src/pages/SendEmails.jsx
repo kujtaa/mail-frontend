@@ -25,6 +25,12 @@ const QUILL_FORMATS = [
 
 const SAFE_BATCH_SELECTION_SIZE = 150;
 
+const formatFailedRecipients = (failed) => {
+  return failed.map((item) => {
+    return item.error ? `${item.email}: ${item.error}` : item.email;
+  }).join('; ');
+};
+
 export default function SendEmails() {
   const location = useLocation();
   const [mode, setMode] = useState('batch');
@@ -93,9 +99,12 @@ export default function SendEmails() {
         });
         const failed = result.results.filter((r) => r.status === 'failed');
         if (failed.length > 0) {
-          setMessage(`Sent ${result.sent}/${result.total}. Failed: ${failed.map((f) => f.email).join(', ')}`);
+          setMessage(`Sent ${result.sent}/${result.total}. Failed: ${formatFailedRecipients(failed)}`);
         } else {
           setMessage(`Sent ${result.sent} email(s) successfully!`);
+          setSubject('');
+          setBody('');
+          setShowPreview(false);
         }
       } else {
         const result = await api.post('/dashboard/send-email', {
@@ -107,10 +116,10 @@ export default function SendEmails() {
         if (selectedBatch) {
           await loadBatchEmails(selectedBatch);
         }
+        setSubject('');
+        setBody('');
+        setShowPreview(false);
       }
-      setSubject('');
-      setBody('');
-      setShowPreview(false);
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -127,6 +136,7 @@ export default function SendEmails() {
   const recipientCount = mode === 'batch' ? selectedIds.length : parsedManualEmails.length;
 
   const firstRecipient = batchEmails.find((e) => selectedIds.includes(e.id));
+  const messageIsSuccess = message.includes('Queued') || message.includes('successfully');
 
   return (
     <div>
@@ -136,7 +146,7 @@ export default function SendEmails() {
       </div>
 
       {message && (
-        <div className={`mb-4 p-3 rounded-lg text-sm border ${message.includes('Queued') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+        <div className={`mb-4 p-3 rounded-lg text-sm border ${messageIsSuccess ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
           {message}
           <button onClick={() => setMessage('')} className="ml-2 font-bold cursor-pointer">x</button>
         </div>
