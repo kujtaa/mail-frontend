@@ -34,12 +34,12 @@ export default function MyBatches() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">My Batches</h1>
-        <p className="text-gray-500 mt-1">View and manage your purchased email batches</p>
+        <p className="text-gray-500 mt-1">View and manage your email batches</p>
       </div>
 
       {batches.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
-          No batches yet. <a href="/browse" className="text-indigo-600 hover:underline">Browse emails</a> to purchase.
+          No batches yet. <a href="/browse" className="text-indigo-600 hover:underline">Browse emails</a> to create one.
         </div>
       ) : (
         <div className="space-y-4">
@@ -65,7 +65,7 @@ export default function MyBatches() {
                   <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
                     {b.batch_size} emails
                   </span>
-                  <span className="text-sm text-gray-400">{b.price_paid} credits</span>
+                  <span className="text-sm text-green-600 font-medium">Free</span>
                   {b.purchased_at && <span className="text-xs text-gray-400">{new Date(b.purchased_at).toLocaleDateString()}</span>}
                 </div>
                 <div className="flex items-center gap-3">

@@ -15,18 +15,15 @@ export default function CreateBatch() {
   const [confirming, setConfirming] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [message, setMessage] = useState('');
-  const [stats, setStats] = useState(null);
   const redirectTimerRef = useRef(null);
 
   useEffect(() => {
     Promise.all([
       api.get('/dashboard/categories-list'),
       api.get('/dashboard/browse-overview'),
-      api.get('/dashboard/stats'),
-    ]).then(([cats, overview, s]) => {
+    ]).then(([cats, overview]) => {
       setCategories(cats);
       setCities(overview.by_city || []);
-      setStats(s);
     }).catch((err) => {
       setMessage(`error:${err.message}`);
     }).finally(() => setLoading(false));
@@ -66,8 +63,6 @@ export default function CreateBatch() {
   const selectedCityOption = cities.find((c) => c.name === selectedCity);
   const categoryEstimatedCount = selectedCategories.reduce((sum, c) => sum + c.count, 0);
   const estimatedCount = mode === 'city' ? (selectedCityOption?.count || 0) : categoryEstimatedCount;
-  const isPremium = stats?.plan === 'premium';
-  const estimatedCost = isPremium ? 0 : estimatedCount;
   const canCreate = mode === 'city' ? Boolean(selectedCity && estimatedCount > 0) : selected.size > 0;
 
   const handlePurchase = async () => {
@@ -83,7 +78,7 @@ export default function CreateBatch() {
             categories: [...selected],
             ...(city.trim() ? { city: city.trim() } : {}),
           });
-      setMessage(`success:Batch created with ${result.batch_size} emails for ${result.cost} credits.`);
+      setMessage(`success:Batch created with ${result.batch_size} emails.`);
       redirectTimerRef.current = setTimeout(() => navigate('/batches'), 1500);
     } catch (err) {
       setMessage(`error:${err.message}`);
@@ -240,10 +235,8 @@ export default function CreateBatch() {
             <p className="text-2xl font-bold text-gray-900">{estimatedCount.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Estimated cost</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {isPremium ? <span className="text-purple-600 text-base font-semibold">Free (Premium)</span> : `${estimatedCost} credits`}
-            </p>
+            <p className="text-xs text-gray-500">Access</p>
+            <p className="text-base font-semibold text-green-600">Free</p>
           </div>
         </div>
         <button
@@ -258,7 +251,7 @@ export default function CreateBatch() {
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Batch Purchase</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Batch Creation</h3>
             <div className="space-y-2 mb-6">
               {mode === 'city' ? (
                 <p className="text-sm text-gray-700">City: <span className="font-medium">{selectedCity}</span></p>
@@ -273,21 +266,7 @@ export default function CreateBatch() {
               {mode === 'category' && city.trim() && (
                 <p className="text-sm text-gray-700">City filter: <span className="font-medium">{city.trim()}</span></p>
               )}
-              {isPremium ? (
-                <p className="text-sm text-purple-600 font-medium">Free with Premium plan</p>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-700">Cost: <span className="font-medium">{estimatedCost} credits</span></p>
-                  <p className="text-sm text-gray-700">
-                    Balance: <span className={`font-medium ${(stats?.credit_balance || 0) >= estimatedCost ? 'text-green-600' : 'text-red-600'}`}>
-                      {(stats?.credit_balance || 0).toFixed(0)} credits
-                    </span>
-                  </p>
-                  {(stats?.credit_balance || 0) < estimatedCost && (
-                    <p className="text-sm text-red-600 font-medium">Insufficient credits</p>
-                  )}
-                </>
-              )}
+              <p className="text-sm text-green-600 font-medium">Free access</p>
             </div>
             <div className="flex gap-3">
               <button
@@ -298,7 +277,7 @@ export default function CreateBatch() {
               </button>
               <button
                 onClick={handlePurchase}
-                disabled={purchasing || (!isPremium && (stats?.credit_balance || 0) < estimatedCost)}
+                disabled={purchasing}
                 className="flex-1 bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {purchasing ? 'Creating...' : 'Confirm'}

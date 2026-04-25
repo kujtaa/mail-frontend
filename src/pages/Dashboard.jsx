@@ -215,22 +215,12 @@ export default function Dashboard() {
         )}
       </div>
 
-      {stats.plan === 'premium' && (
-        <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-200 flex items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-purple-600 px-3 py-1 text-xs font-bold text-white">PREMIUM</span>
-          <span className="text-sm text-purple-800">
-            {stats.daily_sends_remaining} of {stats.daily_send_limit} daily sends remaining — no credits needed for batch purchases
-          </span>
-        </div>
-      )}
-
       {/* Your Account */}
       <div className="mb-8">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Your Account</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <StatCard title="Credits" value={stats.credit_balance.toFixed(0)} icon="💰" color="amber" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           <StatCard title="Batches" value={stats.batches_count} icon="📦" color="blue" />
-          <StatCard title="Purchased" value={stats.emails_purchased.toLocaleString()} subtitle="emails in batches" icon="🛒" color="green" />
+          <StatCard title="Batch Emails" value={stats.emails_purchased.toLocaleString()} subtitle="emails in batches" icon="🛒" color="green" />
           <StatCard title="Sent" value={stats.emails_sent.toLocaleString()} subtitle={sendRate ? `${sendRate}% success rate` : ''} icon="✅" color="emerald" />
           <StatCard title="Failed" value={stats.emails_failed.toLocaleString()} icon="❌" color="red" />
         </div>
@@ -274,9 +264,9 @@ export default function Dashboard() {
       <div>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickAction to="/browse" label="Browse Emails" description="Find & purchase leads" icon="🔍" primary />
+          <QuickAction to="/browse" label="Browse Emails" description="Find & create lead batches" icon="🔍" primary />
           <QuickAction to="/send" label="Send Emails" description="Compose & send to leads" icon="✉️" />
-          <QuickAction to="/batches" label="My Batches" description="View purchased batches" icon="📦" />
+          <QuickAction to="/batches" label="My Batches" description="View created batches" icon="📦" />
           <QuickAction to="/settings" label="SMTP Settings" description="Configure email sending" icon="⚙️" />
         </div>
       </div>

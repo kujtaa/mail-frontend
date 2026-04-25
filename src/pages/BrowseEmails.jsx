@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-import { useAuth } from '../context/AuthContext';
 
 export default function BrowseEmails() {
-  const { company } = useAuth();
   const [overview, setOverview] = useState(null);
-  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('category');
   const [search, setSearch] = useState('');
@@ -16,18 +13,12 @@ export default function BrowseEmails() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      api.get('/dashboard/browse-overview'),
-      api.get('/dashboard/stats'),
-    ]).then(([ov, s]) => {
+    api.get('/dashboard/browse-overview').then((ov) => {
       setOverview(ov);
-      setStats(s);
     }).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
-
-  const isPremium = stats?.plan === 'premium';
 
   const handlePurchase = async () => {
     if (!purchaseTarget) return;
@@ -39,7 +30,7 @@ export default function BrowseEmails() {
       else body.city = purchaseTarget.name;
 
       const result = await api.post('/dashboard/purchase-batch', body);
-      setMessage(`Purchased ${result.batch_size} emails from "${purchaseTarget.name}" for ${result.cost} credits. Balance: ${result.remaining_credits}`);
+      setMessage(`Created batch with ${result.batch_size} emails from "${purchaseTarget.name}".`);
       setPurchaseTarget(null);
       setBatchSize(0);
       load();
@@ -65,22 +56,13 @@ export default function BrowseEmails() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Browse Emails</h1>
-        <p className="text-gray-500 mt-1">Purchase email batches by city or by category</p>
+        <p className="text-gray-500 mt-1">Create email batches by city or by category</p>
       </div>
 
       {message && (
-        <div className={`mb-6 p-4 rounded-lg text-sm border ${message.includes('Purchased') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+        <div className={`mb-6 p-4 rounded-lg text-sm border ${message.includes('Created') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
           {message}
           <button onClick={() => setMessage('')} className="ml-2 font-bold cursor-pointer">x</button>
-        </div>
-      )}
-
-      {isPremium && (
-        <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-200 flex items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-purple-600 px-3 py-1 text-xs font-bold text-white">PREMIUM</span>
-          <span className="text-sm text-purple-800">
-            Batch purchases are free. {stats.daily_sends_remaining} daily sends remaining.
-          </span>
         </div>
       )}
 
@@ -125,15 +107,6 @@ export default function BrowseEmails() {
                 <p className="text-xs text-gray-500">Cities</p>
               </div>
             </div>
-            {!isPremium && stats && (
-              <div className="bg-white rounded-xl border border-amber-200 px-6 py-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-lg font-bold text-amber-600">$</div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.credit_balance.toFixed(0)}</p>
-                  <p className="text-xs text-gray-500">Your credits</p>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-4 mb-4">
@@ -237,7 +210,7 @@ export default function BrowseEmails() {
       {purchaseTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Purchase Email Batch</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Create Email Batch</h3>
             <div className="mb-5">
               <div className="flex items-center gap-2 mt-2">
                 {purchaseTarget.type === 'city' ? (
@@ -279,17 +252,7 @@ export default function BrowseEmails() {
             </div>
 
             <div className="text-xs text-gray-400 mb-6 space-y-1">
-              {isPremium ? (
-                <p className="text-purple-600 font-medium">Free with Premium plan</p>
-              ) : (
-                <>
-                  <p>Cost: <span className="font-medium text-gray-700">{batchSize} credit{batchSize !== 1 ? 's' : ''}</span></p>
-                  <p>Your balance: <span className={`font-medium ${(stats?.credit_balance || 0) >= batchSize ? 'text-green-600' : 'text-red-600'}`}>{(stats?.credit_balance || 0).toFixed(0)} credits</span></p>
-                  {(stats?.credit_balance || 0) < batchSize && (
-                    <p className="text-red-600 font-medium">Insufficient credits — contact admin to top up</p>
-                  )}
-                </>
-              )}
+              <p className="text-green-600 font-medium">Free access</p>
             </div>
 
             <div className="flex gap-3">
@@ -304,7 +267,7 @@ export default function BrowseEmails() {
                 disabled={purchasing || batchSize < 1}
                 className="flex-1 bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
               >
-                {purchasing ? 'Purchasing...' : `Purchase ${batchSize} emails`}
+                {purchasing ? 'Creating...' : `Create ${batchSize} emails`}
               </button>
             </div>
           </div>

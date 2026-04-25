@@ -50,9 +50,6 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-500">
               <span className="font-medium text-gray-900">{company.name}</span>
-              <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20 ring-inset">
-                {company.credit_balance.toFixed(0)} credits
-              </span>
               {company.is_admin && (
                 <span className="ml-1 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset">
                   Admin
