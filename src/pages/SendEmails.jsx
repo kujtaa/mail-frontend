@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -23,6 +23,8 @@ const QUILL_FORMATS = [
   'list', 'blockquote', 'link', 'image',
 ];
 
+const SAFE_BATCH_SELECTION_SIZE = 150;
+
 export default function SendEmails() {
   const location = useLocation();
   const [mode, setMode] = useState('batch');
@@ -42,17 +44,24 @@ export default function SendEmails() {
     api.get('/dashboard/my-batches').then(setBatches);
   }, []);
 
+  const selectNextSafeBatch = useCallback((emails) => {
+    setSelectedIds(emails.slice(0, SAFE_BATCH_SELECTION_SIZE).map((e) => e.id));
+  }, []);
+
+  const loadBatchEmails = useCallback(async (batchId) => {
+    const emails = await api.get(`/dashboard/my-batches/${batchId}/emails`);
+    setBatchEmails(emails);
+    selectNextSafeBatch(emails);
+  }, [selectNextSafeBatch]);
+
   useEffect(() => {
     if (selectedBatch) {
-      api.get(`/dashboard/my-batches/${selectedBatch}/emails`).then((emails) => {
-        setBatchEmails(emails);
-        setSelectedIds(emails.map((e) => e.id));
-      });
+      loadBatchEmails(selectedBatch);
     } else {
       setBatchEmails([]);
       setSelectedIds([]);
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, loadBatchEmails]);
 
   const toggleId = (id) => {
     setSelectedIds((prev) =>
@@ -95,6 +104,9 @@ export default function SendEmails() {
           body,
         });
         setMessage(`Queued ${result.queued} email(s) for sending!`);
+        if (selectedBatch) {
+          await loadBatchEmails(selectedBatch);
+        }
       }
       setSubject('');
       setBody('');
@@ -173,16 +185,28 @@ export default function SendEmails() {
               {batchEmails.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.length === batchEmails.length}
-                        onChange={toggleAll}
-                        className="rounded cursor-pointer"
-                      />
-                      Select All
-                    </label>
-                    <span className="text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.length === batchEmails.length}
+                          onChange={toggleAll}
+                          className="rounded cursor-pointer"
+                        />
+                        Select All
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => selectNextSafeBatch(batchEmails)}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                      >
+                        Select next {SAFE_BATCH_SELECTION_SIZE}
+                      </button>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
+                      <span className="block text-[11px] text-gray-400">unsent recipients</span>
+                    </div>
                   </div>
                   <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
                     {batchEmails.map((e) => (

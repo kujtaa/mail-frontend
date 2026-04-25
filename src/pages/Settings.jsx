@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import ReactQuill from 'react-quill-new';
+import ReactQuill, { Quill } from 'react-quill-new';
+import ImageResize from 'resize-quill-image';
 import 'react-quill-new/dist/quill.snow.css';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+
+Quill.register('modules/imageResize', ImageResize, true);
 
 const SIG_MODULES = {
   toolbar: [
@@ -11,6 +14,11 @@ const SIG_MODULES = {
     ['link', 'image'],
     ['clean'],
   ],
+  imageResize: {
+    displaySize: true,
+    minWidth: 24,
+    minHeight: 24,
+  },
 };
 const SIG_FORMATS = ['bold', 'italic', 'underline', 'color', 'link', 'image'];
 
