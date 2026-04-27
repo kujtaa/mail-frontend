@@ -15,6 +15,7 @@ export default function SentHistory() {
   const [message, setMessage] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [retryingIds, setRetryingIds] = useState(new Set());
+  const [retryProgress, setRetryProgress] = useState(null);
   const perPage = 100;
 
   const load = () => {
@@ -35,6 +36,22 @@ export default function SentHistory() {
     return () => clearInterval(timer);
   }, [emails, page, statusFilter]);
 
+  const refreshRetryProgress = async (ids) => {
+    try {
+      const progress = await api.post('/dashboard/sent-history/progress', { sent_email_ids: ids });
+      setRetryProgress({ ids, ...progress });
+      if (progress.completed) load();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  useEffect(() => {
+    if (!retryProgress || retryProgress.completed) return undefined;
+    const timer = setInterval(() => refreshRetryProgress(retryProgress.ids), 3000);
+    return () => clearInterval(timer);
+  }, [retryProgress]);
+
   const retryEmails = async (ids) => {
     if (ids.length === 0) return;
     setMessage(null);
@@ -42,12 +59,21 @@ export default function SentHistory() {
     try {
       const result = await api.post('/dashboard/sent-history/retry', { sent_email_ids: ids });
       if (result.queued > 0) {
+        setRetryProgress({
+          ids,
+          total: result.queued,
+          sent: 0,
+          failed: 0,
+          pending: result.queued,
+          completed: false,
+        });
         setEmails((prev) => prev.map((email) => (
           ids.includes(email.id)
             ? { ...email, status: 'pending', sent_at: null, error_message: null }
             : email
         )));
         setMessage({ type: 'success', text: `Queued ${result.queued} email(s) for retry. They will send one every ${result.delay_seconds || 5} seconds.` });
+        refreshRetryProgress(ids);
       } else {
         setMessage({ type: 'error', text: 'No failed or pending emails were queued. Refresh and try again.' });
       }
@@ -61,6 +87,7 @@ export default function SentHistory() {
 
   const retryableIds = emails.filter((email) => ['failed', 'pending'].includes(email.status)).map((email) => email.id);
   const pendingCount = emails.filter((email) => email.status === 'pending').length;
+  const retryPercent = retryProgress?.total ? Math.round((retryProgress.sent / retryProgress.total) * 100) : 0;
 
   return (
     <div>
@@ -77,6 +104,35 @@ export default function SentHistory() {
         }`}>
           {message.text}
           <button onClick={() => setMessage(null)} className="ml-2 font-bold cursor-pointer">x</button>
+        </div>
+      )}
+
+      {retryProgress && (
+        <div className="mb-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-indigo-900">Retry progress</p>
+              <p className="text-2xl font-bold text-indigo-700 mt-1">
+                {retryProgress.sent} / {retryProgress.total} sent
+              </p>
+              <p className="text-xs text-indigo-700 mt-1">
+                {retryProgress.pending} pending
+                {retryProgress.failed > 0 ? `, ${retryProgress.failed} failed` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => refreshRetryProgress(retryProgress.ids)}
+              className="px-3 py-2 rounded-lg text-sm font-medium border border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer"
+            >
+              Update now
+            </button>
+          </div>
+          <div className="mt-3 h-2 bg-white rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-600 transition-all"
+              style={{ width: `${retryPercent}%` }}
+            />
+          </div>
         </div>
       )}
 
