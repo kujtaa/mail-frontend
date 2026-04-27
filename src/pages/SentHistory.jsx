@@ -12,8 +12,9 @@ export default function SentHistory() {
   const [emails, setEmails] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [retryingIds, setRetryingIds] = useState(new Set());
   const perPage = 100;
 
   const load = () => {
@@ -34,15 +35,31 @@ export default function SentHistory() {
     return () => clearInterval(timer);
   }, [emails, page, statusFilter]);
 
-  const retryFailed = async (ids) => {
+  const retryEmails = async (ids) => {
     if (ids.length === 0) return;
-    setMessage('');
-    const result = await api.post('/dashboard/sent-history/retry', { sent_email_ids: ids });
-    setMessage(`Queued ${result.queued} failed email(s) for retry.`);
-    load();
+    setMessage(null);
+    setRetryingIds(new Set(ids));
+    try {
+      const result = await api.post('/dashboard/sent-history/retry', { sent_email_ids: ids });
+      if (result.queued > 0) {
+        setEmails((prev) => prev.map((email) => (
+          ids.includes(email.id)
+            ? { ...email, status: 'pending', sent_at: null, error_message: null }
+            : email
+        )));
+        setMessage({ type: 'success', text: `Queued ${result.queued} email(s) for retry. They will send one every ${result.delay_seconds || 5} seconds.` });
+      } else {
+        setMessage({ type: 'error', text: 'No failed or pending emails were queued. Refresh and try again.' });
+      }
+      load();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setRetryingIds(new Set());
+    }
   };
 
-  const failedIds = emails.filter((email) => email.status === 'failed').map((email) => email.id);
+  const retryableIds = emails.filter((email) => ['failed', 'pending'].includes(email.status)).map((email) => email.id);
   const pendingCount = emails.filter((email) => email.status === 'pending').length;
 
   return (
@@ -53,9 +70,13 @@ export default function SentHistory() {
       </div>
 
       {message && (
-        <div className="mb-4 p-3 rounded-lg text-sm border bg-green-50 text-green-700 border-green-200">
-          {message}
-          <button onClick={() => setMessage('')} className="ml-2 font-bold cursor-pointer">x</button>
+        <div className={`mb-4 p-3 rounded-lg text-sm border ${
+          message.type === 'success'
+            ? 'bg-green-50 text-green-700 border-green-200'
+            : 'bg-red-50 text-red-700 border-red-200'
+        }`}>
+          {message.text}
+          <button onClick={() => setMessage(null)} className="ml-2 font-bold cursor-pointer">x</button>
         </div>
       )}
 
@@ -85,11 +106,11 @@ export default function SentHistory() {
             Refresh
           </button>
           <button
-            onClick={() => retryFailed(failedIds)}
-            disabled={failedIds.length === 0}
+            onClick={() => retryEmails(retryableIds)}
+            disabled={retryableIds.length === 0 || retryingIds.size > 0}
             className="px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 cursor-pointer"
           >
-            Retry failed on page
+            {retryingIds.size > 0 ? 'Queueing...' : 'Retry failed/pending on page'}
           </button>
         </div>
       </div>
@@ -128,15 +149,14 @@ export default function SentHistory() {
                     {e.error_message || '—'}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {e.status === 'failed' ? (
+                    {['failed', 'pending'].includes(e.status) ? (
                       <button
-                        onClick={() => retryFailed([e.id])}
-                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 cursor-pointer"
+                        onClick={() => retryEmails([e.id])}
+                        disabled={retryingIds.has(e.id)}
+                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-40 cursor-pointer"
                       >
-                        Retry
+                        {retryingIds.has(e.id) ? 'Queueing...' : e.status === 'pending' ? 'Requeue' : 'Retry'}
                       </button>
-                    ) : e.status === 'pending' ? (
-                      <span className="text-xs text-gray-400">Waiting</span>
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}
