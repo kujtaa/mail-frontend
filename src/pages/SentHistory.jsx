@@ -36,13 +36,14 @@ export default function SentHistory() {
               <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Sent At</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">Loading...</td></tr>
             ) : emails.length === 0 ? (
-              <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-400">No sent emails yet</td></tr>
+              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">No sent emails yet</td></tr>
             ) : (
               emails.map((e) => (
                 <tr key={e.id} className="hover:bg-gray-50">
@@ -55,6 +56,9 @@ export default function SentHistory() {
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${statusColors[e.status] || ''}`}>
                       {e.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-red-600 max-w-xs">
+                    {e.error_message || '—'}
                   </td>
                 </tr>
               ))

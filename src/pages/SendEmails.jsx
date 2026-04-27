@@ -112,7 +112,7 @@ export default function SendEmails() {
           subject,
           body,
         });
-        setMessage(`Queued ${result.queued} email(s) for sending!`);
+        setMessage(`Queued ${result.queued} email(s). Sending one every ${result.delay_seconds || 5} seconds.`);
         if (selectedBatch) {
           await loadBatchEmails(selectedBatch);
         }
