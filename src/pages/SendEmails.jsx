@@ -23,7 +23,7 @@ const QUILL_FORMATS = [
   'list', 'blockquote', 'link', 'image',
 ];
 
-const SAFE_BATCH_SELECTION_SIZE = 150;
+const SAFE_BATCH_SELECTION_SIZE = 20;
 
 const formatFailedRecipients = (failed) => {
   return failed.map((item) => {
