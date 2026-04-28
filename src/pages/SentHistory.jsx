@@ -8,6 +8,27 @@ const statusColors = {
   failed: 'bg-red-50 text-red-700 ring-red-600/20',
 };
 
+const RETRY_PROGRESS_KEY = 'sent_history_retry_progress_ids';
+
+const loadSavedRetryProgress = () => {
+  try {
+    const ids = JSON.parse(localStorage.getItem(RETRY_PROGRESS_KEY) || '[]');
+    if (!Array.isArray(ids) || ids.length === 0) return null;
+
+    return {
+      ids,
+      total: ids.length,
+      sent: 0,
+      failed: 0,
+      pending: ids.length,
+      completed: false,
+    };
+  } catch {
+    localStorage.removeItem(RETRY_PROGRESS_KEY);
+    return null;
+  }
+};
+
 export default function SentHistory() {
   const [emails, setEmails] = useState([]);
   const [page, setPage] = useState(1);
@@ -15,7 +36,7 @@ export default function SentHistory() {
   const [message, setMessage] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [retryingIds, setRetryingIds] = useState(new Set());
-  const [retryProgress, setRetryProgress] = useState(null);
+  const [retryProgress, setRetryProgress] = useState(loadSavedRetryProgress);
   const perPage = 100;
 
   const load = () => {
@@ -40,6 +61,7 @@ export default function SentHistory() {
     try {
       const progress = await api.post('/dashboard/sent-history/progress', { sent_email_ids: ids });
       setRetryProgress({ ids, ...progress });
+      localStorage.setItem(RETRY_PROGRESS_KEY, JSON.stringify(ids));
       if (progress.completed) load();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -47,10 +69,21 @@ export default function SentHistory() {
   };
 
   useEffect(() => {
+    if (retryProgress?.ids?.length) {
+      refreshRetryProgress(retryProgress.ids);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!retryProgress || retryProgress.completed) return undefined;
     const timer = setInterval(() => refreshRetryProgress(retryProgress.ids), 3000);
     return () => clearInterval(timer);
   }, [retryProgress]);
+
+  const clearRetryProgress = () => {
+    localStorage.removeItem(RETRY_PROGRESS_KEY);
+    setRetryProgress(null);
+  };
 
   const retryEmails = async (ids) => {
     if (ids.length === 0) return;
@@ -59,6 +92,7 @@ export default function SentHistory() {
     try {
       const result = await api.post('/dashboard/sent-history/retry', { sent_email_ids: ids });
       if (result.queued > 0) {
+        localStorage.setItem(RETRY_PROGRESS_KEY, JSON.stringify(ids));
         setRetryProgress({
           ids,
           total: result.queued,
@@ -121,10 +155,10 @@ export default function SentHistory() {
               </p>
             </div>
             <button
-              onClick={() => refreshRetryProgress(retryProgress.ids)}
+              onClick={clearRetryProgress}
               className="px-3 py-2 rounded-lg text-sm font-medium border border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer"
             >
-              Update now
+              Hide
             </button>
           </div>
           <div className="mt-3 h-2 bg-white rounded-full overflow-hidden">
