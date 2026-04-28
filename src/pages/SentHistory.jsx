@@ -37,6 +37,7 @@ export default function SentHistory() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [retryingIds, setRetryingIds] = useState(new Set());
   const [retryProgress, setRetryProgress] = useState(loadSavedRetryProgress);
+  const [processingPending, setProcessingPending] = useState(false);
   const perPage = 100;
 
   const load = () => {
@@ -56,6 +57,28 @@ export default function SentHistory() {
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
   }, [emails, page, statusFilter]);
+
+  const processNextPending = async () => {
+    if (processingPending) return;
+    setProcessingPending(true);
+    try {
+      await api.post('/dashboard/sent-history/process-next', {});
+      load();
+      if (retryProgress?.ids?.length) {
+        refreshRetryProgress(retryProgress.ids);
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setProcessingPending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!emails.some((email) => email.status === 'pending')) return undefined;
+    const timer = setInterval(processNextPending, 5000);
+    return () => clearInterval(timer);
+  }, [emails, processingPending, retryProgress]);
 
   const refreshRetryProgress = async (ids) => {
     try {
@@ -175,7 +198,9 @@ export default function SentHistory() {
           <p className="text-sm font-medium text-gray-900">
             {pendingCount > 0 ? `${pendingCount} email(s) waiting in queue on this page` : 'No queued emails on this page'}
           </p>
-          <p className="text-xs text-gray-500 mt-1">Pending emails are waiting for the backend queue worker. Failed emails can be retried.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Pending emails are processed automatically while this page is open. Failed emails can be retried.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -194,6 +219,13 @@ export default function SentHistory() {
             className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
           >
             Refresh
+          </button>
+          <button
+            onClick={processNextPending}
+            disabled={pendingCount === 0 || processingPending}
+            className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 cursor-pointer"
+          >
+            {processingPending ? 'Processing...' : 'Process next pending'}
           </button>
           <button
             onClick={() => retryEmails(retryableIds)}
