@@ -15,6 +15,8 @@ export default function CreateBatch() {
   const [confirming, setConfirming] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [message, setMessage] = useState('');
+  const [cityEstimate, setCityEstimate] = useState(null); // { count, city_found }
+  const [cityEstimating, setCityEstimating] = useState(false);
   const redirectTimerRef = useRef(null);
 
   useEffect(() => {
@@ -34,6 +36,31 @@ export default function CreateBatch() {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, []);
+
+  // Debounced city estimate when in category mode
+  useEffect(() => {
+    if (mode !== 'category' || !city.trim() || selected.size === 0) {
+      setCityEstimate(null);
+      return;
+    }
+    setCityEstimating(true);
+    const selectedKeys = [...selected].join(',');
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.post('/dashboard/estimate-batch-multi', {
+          categories: [...selected],
+          city: city.trim(),
+        });
+        setCityEstimate(result);
+      } catch {
+        setCityEstimate(null);
+      } finally {
+        setCityEstimating(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city, mode, [...selected].join(',')]);
 
   const filtered = useMemo(() => {
     if (!search) return categories;
@@ -62,7 +89,9 @@ export default function CreateBatch() {
   const selectedCategories = categories.filter((c) => selected.has(c.name));
   const selectedCityOption = cities.find((c) => c.name === selectedCity);
   const categoryEstimatedCount = selectedCategories.reduce((sum, c) => sum + c.count, 0);
-  const estimatedCount = mode === 'city' ? (selectedCityOption?.count || 0) : categoryEstimatedCount;
+  const estimatedCount = mode === 'city'
+    ? (selectedCityOption?.count || 0)
+    : (cityEstimate !== null ? cityEstimate.count : categoryEstimatedCount);
   const canCreate = mode === 'city' ? Boolean(selectedCity && estimatedCount > 0) : selected.size > 0;
 
   const handlePurchase = async () => {
@@ -144,13 +173,30 @@ export default function CreateBatch() {
           </div>
           {mode === 'category' && (
             <>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Filter by city (optional)"
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[180px]"
-              />
+              <div className="flex flex-col gap-1">
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => { setCity(e.target.value); setCityEstimate(null); }}
+                  placeholder="Filter by city (optional)"
+                  className={`rounded-lg border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[180px] ${
+                    cityEstimate && !cityEstimate.city_found ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {city.trim() && selected.size > 0 && (
+                  <p className={`text-xs px-1 ${
+                    cityEstimating ? 'text-gray-400' :
+                    !cityEstimate ? 'text-gray-400' :
+                    !cityEstimate.city_found ? 'text-red-500' :
+                    'text-indigo-600'
+                  }`}>
+                    {cityEstimating ? 'Checking...' :
+                     !cityEstimate ? '' :
+                     !cityEstimate.city_found ? `City "${city.trim()}" not found` :
+                     `${cityEstimate.count.toLocaleString()} emails in ${city.trim()}`}
+                  </p>
+                )}
+              </div>
               <div className="flex gap-2 items-center">
                 <button
                   onClick={selectAll}
@@ -231,8 +277,14 @@ export default function CreateBatch() {
             <p className="text-2xl font-bold text-gray-900">{mode === 'city' ? (selectedCity ? 1 : 0) : selected.size}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Estimated emails</p>
-            <p className="text-2xl font-bold text-gray-900">{estimatedCount.toLocaleString()}</p>
+            <p className="text-xs text-gray-500">
+              {mode === 'category' && city.trim() && cityEstimate?.city_found
+                ? `Emails in ${city.trim()}`
+                : 'Estimated emails'}
+            </p>
+            <p className={`text-2xl font-bold ${cityEstimating ? 'text-gray-400' : 'text-gray-900'}`}>
+              {cityEstimating ? '...' : estimatedCount.toLocaleString()}
+            </p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Access</p>
