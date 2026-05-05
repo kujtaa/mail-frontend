@@ -383,7 +383,7 @@ export default function Settings() {
               value={signature}
               onChange={setSignature}
               modules={sigModules}
-              formats={['bold', 'italic', 'underline', 'color', 'link', 'image', 'width', 'height']}
+              formats={['bold', 'italic', 'underline', 'color', 'link', 'image']}
               placeholder="Best regards,&#10;John Doe — Company Name&#10;+41 79 123 45 67"
             />
           </div>
