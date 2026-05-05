@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
 import ImageResize from 'resize-quill-image';
 import 'react-quill-new/dist/quill.snow.css';
@@ -7,20 +7,24 @@ import { useAuth } from '../context/AuthContext';
 
 Quill.register('modules/imageResize', ImageResize, true);
 
-const SIG_MODULES = {
-  toolbar: [
-    ['bold', 'italic', 'underline'],
-    [{ color: [] }],
-    ['link', 'image'],
-    ['clean'],
-  ],
-  imageResize: {
-    displaySize: true,
-    minWidth: 24,
-    minHeight: 24,
-  },
-};
-const SIG_FORMATS = ['bold', 'italic', 'underline', 'color', 'link', 'image'];
+const compressImage = (file) =>
+  new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_WIDTH = 400;
+        const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 
 const PRESETS = [
   { label: 'Gmail', host: 'smtp.gmail.com', port: 587, note: 'Use an App Password, not your Gmail password' },
@@ -33,6 +37,7 @@ export default function Settings() {
   const { company } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -47,6 +52,8 @@ export default function Settings() {
   const [signature, setSignature] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [activePreset, setActivePreset] = useState('Custom');
+
+  const quillRef = useRef(null);
 
   useEffect(() => {
     api.get('/dashboard/smtp-settings')
@@ -80,7 +87,6 @@ export default function Settings() {
     setSaving(true);
     setMessage(null);
     try {
-      const sigStripped = signature.replace(/<[^>]*>/g, '').trim();
       const data = await api.put('/dashboard/smtp-settings', {
         smtp_host: host,
         smtp_port: port,
@@ -89,7 +95,6 @@ export default function Settings() {
         smtp_from_email: fromEmail || user,
         smtp_from_name: fromName,
         smtp_enabled: enabled,
-        email_signature: sigStripped ? signature : null,
       });
       setHasPassword(data.has_password);
       setPass('');
@@ -98,6 +103,22 @@ export default function Settings() {
       setMessage({ type: 'error', text: err.message });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveSignature = async () => {
+    setSavingSignature(true);
+    setMessage(null);
+    try {
+      const sigStripped = signature.replace(/<[^>]*>/g, '').trim();
+      await api.put('/dashboard/email-signature', {
+        email_signature: sigStripped ? signature : null,
+      });
+      setMessage({ type: 'success', text: 'Signature saved!' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setSavingSignature(false);
     }
   };
 
@@ -114,6 +135,40 @@ export default function Settings() {
       setTesting(false);
     }
   };
+
+  const imageHandler = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const dataUrl = await compressImage(file);
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range.index, 'image', dataUrl);
+      quill.setSelection(range.index + 1);
+    };
+    input.click();
+  }, []);
+
+  const sigModules = useMemo(() => ({
+    toolbar: {
+      container: [
+        ['bold', 'italic', 'underline'],
+        [{ color: [] }],
+        ['link', 'image'],
+        ['clean'],
+      ],
+      handlers: { image: imageHandler },
+    },
+    imageResize: {
+      displaySize: true,
+      minWidth: 24,
+      minHeight: 24,
+    },
+  }), [imageHandler]);
 
   if (loading) return <div className="text-center py-20 text-gray-400">Loading settings...</div>;
 
@@ -137,8 +192,8 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {/* Header */}
+      {/* SMTP Settings */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
@@ -167,7 +222,6 @@ export default function Settings() {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Provider presets */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email Provider</label>
             <div className="flex flex-wrap gap-2">
@@ -192,7 +246,6 @@ export default function Settings() {
             )}
           </div>
 
-          {/* SMTP Host + Port */}
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
@@ -215,7 +268,6 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Username + Password */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Username</label>
@@ -225,6 +277,7 @@ export default function Settings() {
                 onChange={(e) => setUser(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="you@gmail.com"
+                autoComplete="username"
               />
             </div>
             <div>
@@ -240,11 +293,11 @@ export default function Settings() {
                 onChange={(e) => setPass(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder={hasPassword ? '••••••••  (leave blank to keep)' : 'App password or SMTP password'}
+                autoComplete="new-password"
               />
             </div>
           </div>
 
-          {/* From fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">From Email</label>
@@ -268,33 +321,15 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Email Signature */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email Signature</label>
-            <p className="text-xs text-gray-400 mb-2">This signature will be appended to every email you send.</p>
-            <div className="rounded-lg border border-gray-300 overflow-hidden bg-white [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200 [&_.ql-toolbar]:bg-gray-50 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[100px] [&_.ql-editor]:text-sm [&_.ql-editor]:leading-relaxed">
-              <ReactQuill
-                theme="snow"
-                value={signature}
-                onChange={setSignature}
-                modules={SIG_MODULES}
-                formats={SIG_FORMATS}
-                placeholder="Best regards,&#10;John Doe — Company Name&#10;+41 79 123 45 67"
-              />
-            </div>
-          </div>
-
-          {/* Save */}
           <button
             onClick={handleSave}
             disabled={saving || !host || !user}
             className="w-full bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
           >
-            {saving ? 'Saving...' : 'Save Settings'}
+            {saving ? 'Saving...' : 'Save SMTP Settings'}
           </button>
         </div>
 
-        {/* Test section */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <label className="block text-sm font-medium text-gray-700 mb-2">Send Test Email</label>
           <div className="flex gap-3">
@@ -331,6 +366,34 @@ export default function Settings() {
           {!hasPassword && (
             <p className="text-xs text-gray-400 mt-2">Save your settings first before sending a test email.</p>
           )}
+        </div>
+      </div>
+
+      {/* Email Signature */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-sm font-semibold text-gray-900">Email Signature</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Appended to every email you send. Images are auto-compressed.</p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="rounded-lg border border-gray-300 overflow-hidden bg-white [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200 [&_.ql-toolbar]:bg-gray-50 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[100px] [&_.ql-editor]:text-sm [&_.ql-editor]:leading-relaxed">
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
+              value={signature}
+              onChange={setSignature}
+              modules={sigModules}
+              formats={['bold', 'italic', 'underline', 'color', 'link', 'image', 'width', 'height']}
+              placeholder="Best regards,&#10;John Doe — Company Name&#10;+41 79 123 45 67"
+            />
+          </div>
+          <button
+            onClick={handleSaveSignature}
+            disabled={savingSignature}
+            className="w-full bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {savingSignature ? 'Saving...' : 'Save Signature'}
+          </button>
         </div>
       </div>
     </div>
