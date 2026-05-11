@@ -154,6 +154,20 @@ export default function SentHistory() {
     }
   };
 
+  const cancelAllPending = async () => {
+    if (!window.confirm(`Cancel all ${totalPending} pending emails? They will be marked as failed and can be retried later.`)) return;
+    try {
+      const result = await api.post('/dashboard/sent-history/cancel-pending', {});
+      setTotalPending(0);
+      setProgress(null);
+      localStorage.removeItem(PROGRESS_STORAGE_KEY);
+      setMessage({ type: 'success', text: `Cancelled ${result.cancelled} pending email(s). You can retry them later.` });
+      load();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
   const retryableIds = emails.filter((e) => ['failed', 'pending'].includes(e.status)).map((e) => e.id);
   const progressPercent = progress?.total ? Math.round((progress.sent / progress.total) * 100) : 0;
 
@@ -223,6 +237,14 @@ export default function SentHistory() {
           <p className="text-xs text-gray-500 mt-1">
             Emails send one every {SEND_INTERVAL_MS / 1000}s while this page is open. Failed emails can be retried.
           </p>
+          {totalPending > 0 && (
+            <button
+              onClick={cancelAllPending}
+              className="mt-2 text-xs text-red-600 hover:text-red-700 underline cursor-pointer"
+            >
+              Cancel all pending
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
