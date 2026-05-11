@@ -33,6 +33,8 @@ export default function SentHistory() {
   const [progress, setProgress] = useState(loadSavedProgress);
   const [processingPending, setProcessingPending] = useState(false);
   const [totalPending, setTotalPending] = useState(null);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
+  const [dailyInfo, setDailyInfo] = useState(null);
   const processingRef = useRef(false);
   const perPage = 100;
 
@@ -64,6 +66,13 @@ export default function SentHistory() {
     try {
       const result = await api.post('/dashboard/sent-history/process-next', {});
       setTotalPending(result.remaining_pending);
+      if (result.daily_limit_reached) {
+        setDailyLimitReached(true);
+        setDailyInfo({ used: result.daily_sends_used, limit: result.daily_send_limit });
+      } else {
+        setDailyLimitReached(false);
+        if (result.daily_send_limit) setDailyInfo({ used: result.daily_sends_used, limit: result.daily_send_limit });
+      }
       if (result.processed) {
         load();
         if (progress?.ids?.length) {
@@ -227,7 +236,13 @@ export default function SentHistory() {
 
       <div className="mb-4 bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          {totalPending !== null && totalPending > 0 ? (
+          {dailyLimitReached && dailyInfo && (
+        <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          Daily limit reached ({dailyInfo.used}/{dailyInfo.limit} emails sent today). Sending will resume automatically at midnight.{' '}
+          <a href="/settings" className="underline font-medium">Adjust limit in Settings</a>
+        </div>
+      )}
+      {totalPending !== null && totalPending > 0 ? (
             <p className="text-sm font-medium text-gray-900">
               {processingPending ? 'Sending...' : `${totalPending} email(s) pending — sending automatically`}
             </p>

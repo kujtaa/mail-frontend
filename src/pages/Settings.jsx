@@ -42,7 +42,12 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [smtpStatus, setSmtpStatus] = useState(null);
   const [message, setMessage] = useState(null);
+  const [dailyLimit, setDailyLimit] = useState(0);
+  const [dailySendsUsed, setDailySendsUsed] = useState(0);
+  const [dailyResetsAt, setDailyResetsAt] = useState(null);
 
   const [host, setHost] = useState('');
   const [port, setPort] = useState(587);
@@ -70,6 +75,9 @@ export default function Settings() {
         setHasPassword(data.has_password);
         setSignature(data.email_signature || '');
         setTestEmail(company?.email || '');
+        setDailyLimit(data.daily_send_limit ?? 0);
+        setDailySendsUsed(data.daily_sends_used ?? 0);
+        setDailyResetsAt(data.daily_sends_reset_at ?? null);
 
         const match = PRESETS.find((p) => p.host === data.smtp_host);
         setActivePreset(match ? match.label : 'Custom');
@@ -98,6 +106,7 @@ export default function Settings() {
         smtp_from_email: fromEmail || user,
         smtp_from_name: fromName,
         smtp_enabled: enabled,
+        daily_send_limit: dailyLimit,
       });
       setHasPassword(data.has_password);
       setPass('');
@@ -122,6 +131,19 @@ export default function Settings() {
       setMessage({ type: 'error', text: err.message });
     } finally {
       setSavingSignature(false);
+    }
+  };
+
+  const handleCheck = async () => {
+    setChecking(true);
+    setSmtpStatus(null);
+    try {
+      const data = await api.post('/dashboard/smtp-check', {});
+      setSmtpStatus({ ok: data.ok, error: data.error, checkedAt: data.checked_at });
+    } catch (err) {
+      setSmtpStatus({ ok: false, error: err.message, checkedAt: new Date().toISOString() });
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -369,6 +391,102 @@ export default function Settings() {
           {!hasPassword && (
             <p className="text-xs text-gray-400 mt-2">Save your settings first before sending a test email.</p>
           )}
+        </div>
+      </div>
+
+      {/* SMTP Status + Daily Limit */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-sm font-semibold text-gray-900">SMTP Health &amp; Daily Limit</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Check if your SMTP can authenticate right now, and set a daily cap to avoid blocks.</p>
+        </div>
+        <div className="p-6 space-y-6">
+
+          {/* SMTP Auth Check */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">SMTP Connection Status</label>
+              <button
+                onClick={handleCheck}
+                disabled={checking || !hasPassword}
+                className="px-4 py-1.5 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-40 cursor-pointer"
+              >
+                {checking ? 'Checking...' : 'Check now'}
+              </button>
+            </div>
+            {smtpStatus ? (
+              <div className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${
+                smtpStatus.ok
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                <span className="text-lg leading-none">{smtpStatus.ok ? '✓' : '✗'}</span>
+                <div>
+                  <p className="font-medium">{smtpStatus.ok ? 'Connected & authenticated successfully' : 'Authentication failed'}</p>
+                  {smtpStatus.error && <p className="text-xs mt-1 opacity-80">{smtpStatus.error}</p>}
+                  <p className="text-xs mt-1 opacity-60">Checked at {new Date(smtpStatus.checkedAt).toLocaleTimeString()}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">Click "Check now" to verify your SMTP credentials without sending an email.</p>
+            )}
+          </div>
+
+          {/* Daily Send Limit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Daily Sending Limit</label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[
+                { label: 'No limit', value: 0 },
+                { label: 'Gmail (400/day)', value: 400 },
+                { label: 'Workspace (1500/day)', value: 1500 },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setDailyLimit(p.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    dailyLimit === p.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={dailyLimit}
+                onChange={(e) => setDailyLimit(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                min={0}
+                placeholder="0 = no limit"
+              />
+              <span className="text-sm text-gray-500">emails per day (0 = no limit)</span>
+            </div>
+            {dailyLimit > 0 && (
+              <div className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-gray-600">Used today</span>
+                  <span className="font-medium text-gray-900">{dailySendsUsed} / {dailyLimit}</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      dailySendsUsed / dailyLimit > 0.85 ? 'bg-red-500' : 'bg-indigo-600'
+                    }`}
+                    style={{ width: `${Math.min(100, (dailySendsUsed / dailyLimit) * 100)}%` }}
+                  />
+                </div>
+                {dailyResetsAt && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Resets at midnight · last reset {new Date(dailyResetsAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -46,9 +46,15 @@ export default function SendEmails() {
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [previewDevice, setPreviewDevice] = useState('desktop');
+  const [dailyInfo, setDailyInfo] = useState(null);
 
   useEffect(() => {
     api.get('/dashboard/my-batches').then(setBatches);
+    api.get('/dashboard/smtp-settings').then((d) => {
+      if (d.daily_send_limit > 0) {
+        setDailyInfo({ limit: d.daily_send_limit, used: d.daily_sends_used, remaining: d.daily_send_limit - d.daily_sends_used });
+      }
+    }).catch(() => {});
   }, []);
 
   const loadBatchEmails = useCallback(async (batchId) => {
@@ -137,9 +143,22 @@ export default function SendEmails() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Send Emails</h1>
-        <p className="text-gray-500 mt-1">Compose and send emails to your leads</p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Send Emails</h1>
+          <p className="text-gray-500 mt-1">Compose and send emails to your leads</p>
+        </div>
+        {dailyInfo && (
+          <div className={`text-sm rounded-lg px-4 py-2 border ${
+            dailyInfo.remaining <= 0
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : dailyInfo.remaining < dailyInfo.limit * 0.15
+              ? 'bg-amber-50 border-amber-200 text-amber-700'
+              : 'bg-gray-50 border-gray-200 text-gray-600'
+          }`}>
+            <span className="font-semibold">{Math.max(0, dailyInfo.remaining)}</span> of {dailyInfo.limit} sends remaining today
+          </div>
+        )}
       </div>
 
       {message && (
