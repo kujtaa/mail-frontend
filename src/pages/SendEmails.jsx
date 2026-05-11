@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { api } from '../api';
@@ -23,7 +23,7 @@ const QUILL_FORMATS = [
   'list', 'blockquote', 'link', 'image',
 ];
 
-const SAFE_BATCH_SELECTION_SIZE = 20;
+const PROGRESS_STORAGE_KEY = 'sent_history_progress_ids';
 
 const formatFailedRecipients = (failed) => {
   return failed.map((item) => {
@@ -33,6 +33,7 @@ const formatFailedRecipients = (failed) => {
 
 export default function SendEmails() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('batch');
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(location.state?.batchId || '');
@@ -50,15 +51,11 @@ export default function SendEmails() {
     api.get('/dashboard/my-batches').then(setBatches);
   }, []);
 
-  const selectNextSafeBatch = useCallback((emails) => {
-    setSelectedIds(emails.slice(0, SAFE_BATCH_SELECTION_SIZE).map((e) => e.id));
-  }, []);
-
   const loadBatchEmails = useCallback(async (batchId) => {
     const emails = await api.get(`/dashboard/my-batches/${batchId}/emails`);
     setBatchEmails(emails);
-    selectNextSafeBatch(emails);
-  }, [selectNextSafeBatch]);
+    setSelectedIds(emails.map((e) => e.id));
+  }, []);
 
   useEffect(() => {
     if (selectedBatch) {
@@ -112,13 +109,13 @@ export default function SendEmails() {
           subject,
           body,
         });
-        setMessage(`Queued ${result.queued} email(s). Sending one every ${result.delay_seconds || 5} seconds.`);
-        if (selectedBatch) {
-          await loadBatchEmails(selectedBatch);
+        if (result.sent_email_ids?.length) {
+          localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(result.sent_email_ids));
         }
         setSubject('');
         setBody('');
         setShowPreview(false);
+        navigate('/history');
       }
     } catch (err) {
       setMessage(err.message);
@@ -195,24 +192,15 @@ export default function SendEmails() {
               {batchEmails.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.length === batchEmails.length}
-                          onChange={toggleAll}
-                          className="rounded cursor-pointer"
-                        />
-                        Select All
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => selectNextSafeBatch(batchEmails)}
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
-                      >
-                        Select next {SAFE_BATCH_SELECTION_SIZE}
-                      </button>
-                    </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === batchEmails.length && batchEmails.length > 0}
+                        onChange={toggleAll}
+                        className="rounded cursor-pointer"
+                      />
+                      Select All
+                    </label>
                     <div className="text-right">
                       <span className="block text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
                       <span className="block text-[11px] text-gray-400">unsent recipients</span>
