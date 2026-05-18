@@ -214,7 +214,13 @@ export default function SendEmails() {
               {(batchEmails.length > 0 || sentEmailsLocal.length > 0) && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Recipients</span>
+                    <button
+                      onClick={() => setSelectedIds(batchEmails.slice(0, 100).map((e) => e.id))}
+                      disabled={batchEmails.length === 0}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-40"
+                    >
+                      Select 100
+                    </button>
                     <div className="text-right">
                       <span className="block text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
                       <span className="block text-[11px] text-gray-400">
