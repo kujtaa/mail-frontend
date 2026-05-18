@@ -80,14 +80,6 @@ export default function SendEmails() {
     );
   };
 
-  const toggleAll = () => {
-    if (selectedIds.length === batchEmails.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(batchEmails.map((e) => e.id));
-    }
-  };
-
   const parsedManualEmails = useMemo(() => {
     return manualEmails.split(/[\n,;]+/).map((e) => e.trim()).filter((e) => e && e.includes('@'));
   }, [manualEmails]);
@@ -222,16 +214,7 @@ export default function SendEmails() {
               {(batchEmails.length > 0 || sentEmailsLocal.length > 0) && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.length === batchEmails.length && batchEmails.length > 0}
-                        onChange={toggleAll}
-                        className="rounded cursor-pointer"
-                        disabled={batchEmails.length === 0}
-                      />
-                      Select All
-                    </label>
+                    <span className="text-sm text-gray-600">Recipients</span>
                     <div className="text-right">
                       <span className="block text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
                       <span className="block text-[11px] text-gray-400">
