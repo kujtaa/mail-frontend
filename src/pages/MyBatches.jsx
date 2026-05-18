@@ -7,6 +7,8 @@ export default function MyBatches() {
   const [expanded, setExpanded] = useState(null);
   const [batchEmails, setBatchEmails] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +28,24 @@ export default function MyBatches() {
 
   const handleSendAll = (batchId) => {
     navigate('/send', { state: { batchId } });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await api.del(`/dashboard/my-batches/${deleteConfirm}`);
+      setBatches((prev) => prev.filter((b) => b.id !== deleteConfirm));
+      if (expanded === deleteConfirm) {
+        setExpanded(null);
+        setBatchEmails([]);
+      }
+    } catch {
+      // silently fail — batch still shown
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(null);
+    }
   };
 
   if (loading) return <div className="text-center py-20 text-gray-400">Loading batches...</div>;
@@ -75,6 +95,12 @@ export default function MyBatches() {
                   >
                     Send to All
                   </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(b.id); }}
+                    className="text-xs bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
                   <span className="text-gray-400 text-sm">{expanded === b.id ? '▲' : '▼'}</span>
                 </div>
               </div>
@@ -104,6 +130,33 @@ export default function MyBatches() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Batch?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              This will permanently delete the batch and all its emails. Sent history will also be removed. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

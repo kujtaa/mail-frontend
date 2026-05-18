@@ -47,6 +47,7 @@ export default function SendEmails() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewDevice, setPreviewDevice] = useState('desktop');
   const [dailyInfo, setDailyInfo] = useState(null);
+  const [sentEmailsLocal, setSentEmailsLocal] = useState([]);
 
   useEffect(() => {
     api.get('/dashboard/my-batches').then(setBatches);
@@ -60,7 +61,8 @@ export default function SendEmails() {
   const loadBatchEmails = useCallback(async (batchId) => {
     const emails = await api.get(`/dashboard/my-batches/${batchId}/emails`);
     setBatchEmails(emails);
-    setSelectedIds(emails.map((e) => e.id));
+    setSentEmailsLocal([]);
+    setSelectedIds(emails.slice(0, 100).map((e) => e.id));
   }, []);
 
   useEffect(() => {
@@ -118,10 +120,19 @@ export default function SendEmails() {
         if (result.sent_email_ids?.length) {
           localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(result.sent_email_ids));
         }
-        setSubject('');
-        setBody('');
+        const justSentSet = new Set(selectedIds);
+        const justSentEmails = batchEmails.filter((e) => justSentSet.has(e.id));
+        const remaining = batchEmails.filter((e) => !justSentSet.has(e.id));
+        setSentEmailsLocal((prev) => [...prev, ...justSentEmails]);
+        setBatchEmails(remaining);
+        const nextCount = Math.min(100, remaining.length);
+        setSelectedIds(remaining.slice(0, nextCount).map((e) => e.id));
         setShowPreview(false);
-        navigate('/history');
+        setMessage(
+          remaining.length > 0
+            ? `Queued ${result.queued} email(s). Next ${nextCount} auto-selected.`
+            : `Queued ${result.queued} email(s). All emails in this batch have been queued!`
+        );
       }
     } catch (err) {
       setMessage(err.message);
@@ -208,7 +219,7 @@ export default function SendEmails() {
                 </select>
               </div>
 
-              {batchEmails.length > 0 && (
+              {(batchEmails.length > 0 || sentEmailsLocal.length > 0) && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                     <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -217,12 +228,15 @@ export default function SendEmails() {
                         checked={selectedIds.length === batchEmails.length && batchEmails.length > 0}
                         onChange={toggleAll}
                         className="rounded cursor-pointer"
+                        disabled={batchEmails.length === 0}
                       />
                       Select All
                     </label>
                     <div className="text-right">
                       <span className="block text-xs font-medium text-indigo-600">{selectedIds.length}/{batchEmails.length}</span>
-                      <span className="block text-[11px] text-gray-400">unsent recipients</span>
+                      <span className="block text-[11px] text-gray-400">
+                        unsent{sentEmailsLocal.length > 0 ? ` · ${sentEmailsLocal.length} sent` : ''}
+                      </span>
                     </div>
                   </div>
                   <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
@@ -240,6 +254,26 @@ export default function SendEmails() {
                         </div>
                       </label>
                     ))}
+                    {sentEmailsLocal.length > 0 && (
+                      <>
+                        {batchEmails.length > 0 && (
+                          <div className="px-4 py-1.5 bg-green-50 border-t border-green-100">
+                            <span className="text-[11px] text-green-600 font-medium">Sent this session ({sentEmailsLocal.length})</span>
+                          </div>
+                        )}
+                        {sentEmailsLocal.map((e) => (
+                          <div key={`sent-${e.id}`} className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 opacity-60">
+                            <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            <div className="min-w-0">
+                              <p className="text-sm text-gray-500 truncate">{e.business_name}</p>
+                              <p className="text-xs text-gray-400 font-mono truncate">{e.email}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
