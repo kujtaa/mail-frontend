@@ -46,6 +46,7 @@ export default function Navbar() {
               </>
             )}
             {company.is_admin && navLink('/admin', 'Admin')}
+            {company.is_admin && navLink('/unsubscribed', 'Unsubscribed')}
           </div>
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-500">

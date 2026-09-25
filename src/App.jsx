@@ -12,6 +12,7 @@ import AdminPanel from './pages/AdminPanel';
 import Settings from './pages/Settings';
 import CreateBatch from './pages/CreateBatch';
 import Unsubscribe from './pages/Unsubscribe';
+import Unsubscribed from './pages/Unsubscribed';
 
 function ProtectedRoute({ children, adminOnly = false, requireApproval = false }) {
   const { company, loading } = useAuth();
@@ -44,6 +45,7 @@ function AppRoutes() {
               <Route path="/history" element={<ProtectedRoute requireApproval><SentHistory /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute requireApproval><Settings /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
+              <Route path="/unsubscribed" element={<ProtectedRoute adminOnly><Unsubscribed /></ProtectedRoute>} />
             </Routes>
           </main>
         </>

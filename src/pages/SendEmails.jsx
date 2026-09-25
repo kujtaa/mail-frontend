@@ -120,10 +120,13 @@ export default function SendEmails() {
         const nextCount = Math.min(100, remaining.length);
         setSelectedIds(remaining.slice(0, nextCount).map((e) => e.id));
         setShowPreview(false);
+        const skippedNote = result.skipped_unsubscribed
+          ? ` ${result.skipped_unsubscribed} unsubscribed recipient(s) were skipped.`
+          : '';
         setMessage(
-          remaining.length > 0
+          (remaining.length > 0
             ? `Queued ${result.queued} email(s). Next ${nextCount} auto-selected.`
-            : `Queued ${result.queued} email(s). All emails in this batch have been queued!`
+            : `Queued ${result.queued} email(s). All emails in this batch have been queued!`) + skippedNote
         );
       }
     } catch (err) {
