@@ -111,9 +111,6 @@ export default function Unsubscribed() {
           {result.existing?.length > 0 && (
             <span className="ml-1 text-green-800">Already listed: {result.existing.join(', ')}.</span>
           )}
-          {result.invalid?.length > 0 && (
-            <span className="ml-1 text-amber-700">Skipped invalid: {result.invalid.join(', ')}.</span>
-          )}
           <button onClick={() => setResult(null)} className="ml-2 text-green-900 font-bold cursor-pointer">x</button>
         </div>
       )}
