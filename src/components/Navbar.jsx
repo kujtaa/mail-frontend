@@ -42,11 +42,11 @@ export default function Navbar() {
                 {navLink('/batches', 'My Batches')}
                 {navLink('/send', 'Send Emails')}
                 {navLink('/history', 'Sent History')}
+                {navLink('/unsubscribed', 'Unsubscribed')}
                 {navLink('/settings', 'Settings')}
               </>
             )}
             {company.is_admin && navLink('/admin', 'Admin')}
-            {company.is_admin && navLink('/unsubscribed', 'Unsubscribed')}
           </div>
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-500">

@@ -35,7 +35,7 @@ export default function Unsubscribed() {
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ search: searchDebounced, source, page, per_page: PER_PAGE });
-    api.get(`/admin/unsubscribed?${params}`)
+    api.get(`/dashboard/unsubscribed?${params}`)
       .then((data) => {
         setItems(data.items);
         setTotal(data.total);
@@ -64,7 +64,7 @@ export default function Unsubscribed() {
     setError('');
     setResult(null);
     try {
-      const res = await api.post('/admin/unsubscribed', { emails: pendingEmails, note: note.trim() || null });
+      const res = await api.post('/dashboard/unsubscribed', { emails: pendingEmails, note: note.trim() || null });
       setResult(res);
       setInput('');
       setNote('');

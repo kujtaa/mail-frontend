@@ -45,7 +45,7 @@ function AppRoutes() {
               <Route path="/history" element={<ProtectedRoute requireApproval><SentHistory /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute requireApproval><Settings /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
-              <Route path="/unsubscribed" element={<ProtectedRoute adminOnly><Unsubscribed /></ProtectedRoute>} />
+              <Route path="/unsubscribed" element={<ProtectedRoute requireApproval><Unsubscribed /></ProtectedRoute>} />
             </Routes>
           </main>
         </>
